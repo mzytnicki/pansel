@@ -125,8 +125,8 @@ class Path:
 class Graph:
   """
   A Graph contains:
-   - a dict of Node, indexed by their name
-   - a dict of Path, indexed by their name
+   - a dict of Node, indexed by their names
+   - a dict of Path, indexed by their names
   """
 
   def __init__(self):
@@ -216,9 +216,67 @@ def main():
   common_nodes     = graph.find_common_nodes(min_n_paths)
   reference_path   = graph.paths[reference]
   common_nodes     = reference_path.order_nodes(common_nodes)
-  print(f"{len(common_nodes)} nodes are above the thresold.", file=sys.stderr)
+  print(f"{len(common_nodes)} nodes are above the threshold.", file=sys.stderr)
+
+
+  chunk_size       = 1000
+  length           = 1
+  curr_chunk_start = 1
+  curr_chunk_end   = chunk_size
+  curr_chunk_id    = 0
+  start_node       = False
+  start_node_start = False
+  start_node_end   = False
+  comm_node        = False
+  comm_node_start  = False
+  comm_node_end    = False
+  first_node       = reference_path.nodes[0]
+  if first_node.name in common_nodes:
+    start_node       = first_node
+    start_node_start = 1
+    start_node_end   = first_node.size
+  for node_id, node in enumerate(reference_path.nodes):
+    node_start = length
+    node_end   = length + node.size - 1
+    in_common  = (node.name in common_nodes)
+    #print(f"Node {node.name}:{node_start}-{node_end}\tCommon: {in_common}")
+    #print(f"Chunk {curr_chunk_start}-{curr_chunk_end}")
+    if node_end >= curr_chunk_end:
+      if in_common:
+        if start_node:
+          sub_paths   = graph.sub_paths(start_node.name, node.name)
+          n_sub_paths = count_n_paths(sub_paths)
+          chunk_start = curr_chunk_start if start_node_start <= curr_chunk_start <= start_node_end else start_node_end
+          chunk_end   = curr_chunk_end   if node_start       <= curr_chunk_end   <= node_end       else node_start
+          print(f"{curr_chunk_id}\t{chunk_start}\t{chunk_end}\t{n_sub_paths}\t{curr_chunk_start}\t{curr_chunk_end}\t{start_node.name}\t{start_node_start}\t{start_node_end}\t{node.name}\t{node_start}\t{node_end}")
+        # If the chunk starts after this common node, take the previous common node
+        # in order to overestimate the size
+        if node_start > curr_chunk_end:
+          start_node       = comm_node
+          start_node_start = comm_node_start
+          start_node_end   = comm_node_end
+        else:
+          start_node       = node
+          start_node_start = node_start
+          start_node_end   = node_end
+        while node_end >= curr_chunk_end:
+          if node_start <= curr_chunk_start and curr_chunk_end <= node_end:
+            print(f"{curr_chunk_id}\t{curr_chunk_start}\t{curr_chunk_end}\t1\t{curr_chunk_start}\t{curr_chunk_end}\t{node.name}\t{node_start}\t{node_end}\t{node.name}\t{node_start}\t{node_end}")
+          curr_chunk_start += chunk_size
+          curr_chunk_end   += chunk_size
+          curr_chunk_id    += 1
+    if in_common:
+      comm_node       = node
+      comm_node_start = node_start
+      comm_node_end   = node_end
+    length += node.size
+    if node_id % 10000 == 0:
+      print(f"{node_id}/{len(reference_path.nodes)} nodes visited.", file=sys.stderr)
+
+  sys.exit(1)
+    
+
   print(f"node start\tnode end\tref start\tref end\t# paths\t# nodes ref\tref size\t# paths / ref size")
-  #print(common_nodes)
   n_used_intervals = 0
   for n_start, n_end in zip(common_nodes, common_nodes[1:]):
     if reference_path.get_node_distance(n_start, n_end) > 1:
