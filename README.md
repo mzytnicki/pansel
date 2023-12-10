@@ -90,6 +90,7 @@ This will detail an example of a real use of `pansel`.
 
  - Dowload the HPRC data (1 file per chromosome, restrict to autosomes), and tranform from VG to GFA format using `vg view`:
 
+
     for i in `seq 2 22`
     do
       wget https://s3-us-west-2.amazonaws.com/human-pangenomics/pangenomes/scratch/2022_03_11_minigraph_cactus/chrom-graphs-hprc-v1.1-mc-chm13-full/chr${i}.vg
@@ -97,20 +98,27 @@ This will detail an example of a real use of `pansel`.
       rm chr${i}.vg
     done
 
+
  - Start `pansel` on each file:
+
 
     for i in `seq 1 22`
     do
       /usr/bin/time ./pansel -i <( zcat chr_${i}_hprc-v1.1-mc-chm13-full.gfa.gz ) -r GRCh38.0.chr${i} -n 91 > chr_${i}_hprc-v1.1-mc-chm13-full_GRCh38.0.chr${i}.tsv 2> chr_${i}_hprc-v1.1-mc-chm13-full_GRCh38.0.chr${i}.log
     done
 
+
  - Merge output files, and produce a BED file:
+
 
     for i in `seq 1 22`
     do
       sed "s/^/chr${i}\t/g" chr_${i}_hprc-v1.1-mc-chm13-full_GRCh38.0.chr${i}.tsv
     done | awk '{print $1 "\t" ($3-1) "\t" $4 "\tbin_" NR "\t" $5 "\t+"}' > chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed
 
+
  - Fit a Gamma distribution to the number of paths, and get the 5% threshold (the R script file is included in the repository):
 
+
     Rscript computeNPathThreshold.R -i chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed -o estimage.png
+
