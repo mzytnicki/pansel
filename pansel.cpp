@@ -459,10 +459,12 @@ void parseParameters (int argc, char const **argv, std::string &pangenomeFileNam
   }
   if (pangenomeFileName.empty()) {
     std::cerr << "Error!\nInput pangenome file is missing.\nExiting.\n";
+    printUsage();
     exit(EXIT_FAILURE);
   }
   if (reference.empty()) {
     std::cerr << "Error!\nInput path reference name is missing.\nExiting.\n";
+    printUsage();
     exit(EXIT_FAILURE);
   }
 }
