@@ -121,4 +121,4 @@ Merge output files, and produce a BED file:
 
 Fit a Gamma distribution to the number of paths, and get the 5% threshold (the R script file is included in the repository):
 
-    Rscript computeNPathThreshold.R -i chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed -o estimage.png
+    Rscript computeNPathThreshold.R -i chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed -o fit.png
