@@ -101,7 +101,7 @@ Dowload the HPRC data (1 file per chromosome, restrict to autosomes), and tranfo
 
 ### Step 2
 
- Start `pansel` on each file:
+ Run `pansel` on each file:
 
     for i in `seq 1 22`
     do
