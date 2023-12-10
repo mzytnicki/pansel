@@ -33,6 +33,7 @@ Typing `make` with a fairly decent C++ compiler (compatible with C++11) should d
       -i string: file name in GFA format
       -r string: reference path name (should be in the GFA)
     Optional parameters:
+      -z int: bin size (default: 1000)
       -n int: min # paths
     Other:
       -h: print this help and exit
@@ -45,6 +46,7 @@ Typing `make` with a fairly decent C++ compiler (compatible with C++11) should d
      Other lines are unused.
      This GFA should only store one chromosome.
  - The reference path name should be the name of a `P` line in the GFA file.
+ - The bin size is the distance between two anchor nodes that will be considered.
  - The `-n` parameter is a threshold, that help selecting highly conserved nodes.
      The nodes that are traversed by at least *n* different paths are selected this way.
      If this parameter is not provided, it will be computed by the programme.

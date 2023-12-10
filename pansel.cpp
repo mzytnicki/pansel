@@ -352,13 +352,12 @@ void printPlacedNode(PlacedNode &n, Graph &g) {
   std::cout << g.nodeNames[n.id] << "\t" << n.start << "\t" << n.end;
 }
 
-void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orderedCommonNodes) {
+void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orderedCommonNodes, int chunkSize) {
   std::vector < bool > orderedCommonNodesBool (graph.nodes.size(), false);
   for (int nodeId: orderedCommonNodes) {
     orderedCommonNodesBool[nodeId] = true;
   }
 
-  int        chunkSize      = 1000;
   int        length         = 1;
   int        firstNodeId    = referencePath.nodeIds.front();
   PlacedNode currentChunk(0, 1, chunkSize);
@@ -427,6 +426,7 @@ void printUsage () {
        "  -i string: file name in GFA format\n"
        "  -r string: reference path name (should be in the GFA)\n"
        "Optional parameters:\n"
+       "  -z int: bin size (default: 1000)\n"
        "  -n int: min # paths\n"
        "Other:\n"
        "  -h: print this help and exit\n"
@@ -434,7 +434,7 @@ void printUsage () {
   exit(EXIT_SUCCESS);
 }
 
-void parseParameters (int argc, char const **argv, std::string &pangenomeFileName, std::string &reference, int &minNPaths) {
+void parseParameters (int argc, char const **argv, std::string &pangenomeFileName, std::string &reference, int &chunkSize, int &minNPaths) {
   for (int i = 1; i < argc; ++i) {
     std::string s(argv[i]);
     if (s == "-i") {
@@ -442,6 +442,9 @@ void parseParameters (int argc, char const **argv, std::string &pangenomeFileNam
     }
     else if (s == "-r") {
       reference = argv[++i];
+    }
+    else if (s == "-z") {
+      chunkSize = std::stoi(argv[++i]);
     }
     else if (s == "-n") {
       minNPaths = std::stoi(argv[++i]);
@@ -472,8 +475,9 @@ void parseParameters (int argc, char const **argv, std::string &pangenomeFileNam
 int main (int argc, const char* argv[]) {
   std::string pangenomeFileName;
   std::string reference;
+  int         chunkSize = 1000;
   int         minNPaths = -1;
-  parseParameters(argc, argv, pangenomeFileName, reference, minNPaths);
+  parseParameters(argc, argv, pangenomeFileName, reference, chunkSize, minNPaths);
   Graph       graph;
   Parser      parser(pangenomeFileName, graph);
   parser.parseFile();
@@ -489,6 +493,6 @@ int main (int argc, const char* argv[]) {
   referencePath.orderNodes(commonNodes, orderedCommonNodes);
   std::cerr << commonNodes.size() << " nodes are above the threshold, " << orderedCommonNodes.size() << " are in reference path.\n";
 
-  computeNPaths(graph, referencePath, orderedCommonNodes);
+  computeNPaths(graph, referencePath, orderedCommonNodes, chunkSize);
   return EXIT_SUCCESS;
 }
