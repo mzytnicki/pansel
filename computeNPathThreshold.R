@@ -26,7 +26,7 @@ if (is.null(opt$output)) {
 
 # Parse input file
 d <- read.table(opt$input, col.names = c("chr", "start", "end", "id", "n.diff.paths", "strand"))
-n <- max(d$n.diff.paths)
+n <- max(d$n.diff.paths) - min(d$n.diff.paths) + 1
 
 # Fit Gamma distribution, and find thresholds
 fitG <- fitdistrplus::fitdist(d$n.diff.paths, "gamma")
@@ -35,8 +35,8 @@ print(paste0("Estimated threshold: ", threshold))
 
 # Plot distribution
 p <- ggplot2::ggplot(d, ggplot2::aes(n.diff.paths)) +
-	ggplot2::geom_density(adjust = 2, color = "black") +
-	ggplot2::stat_function(fun=dgamma, n = n, args=list(shape = fitG$estimate[["shape"]], rate = fitG$estimate[["rate"]]), linetype = "dashed", color = "darkgray") +
+	ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1, color = "black") +
+	ggplot2::stat_function(fun = dgamma, n = n, args = list(shape = fitG$estimate[["shape"]], rate = fitG$estimate[["rate"]]), linetype = "dashed", color = "darkgray") +
 	ggplot2::xlab("# paths") +
 	ggplot2::ylab("Density") +
         ggplot2::geom_vline(xintercept = threshold, linetype = "dashed", color = "darkgray")
