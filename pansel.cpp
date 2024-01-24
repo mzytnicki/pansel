@@ -274,11 +274,11 @@ struct Graph {
     return distance;
   }
 
-  void countNPaths (int nStart, int nEnd, int &nTotalPaths, int &nDifferentPaths, int &editDistance) {
+  void countNPaths (int nStart, int nEnd, int &nTotalPaths, int &nDifferentPaths, float &editDistance) {
     std::vector < SubPath > subPaths;
     nTotalPaths     = 0;
     nDifferentPaths = 0;
-    editDistance    = 0;
+    editDistance    = 0.0;
     for (Path &path: paths) {
       if ((path.hasNodeId(nStart)) && (path.hasNodeId(nEnd))) {
         SubPath newSubPath;
@@ -296,6 +296,7 @@ struct Graph {
         editDistance += d;
       }
     }
+    editDistance /= nTotalPaths * (nTotalPaths - 1) / 2
   }
 
   //friend std::ostream& operator<< (std::ostream& os, const Graph& g);
@@ -398,6 +399,7 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
       if (inCommon) {
         if (startNode.isSet()) {
           int nTotalPaths, nDifferentPaths, editDistance;
+          float editDistance;
           graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths, editDistance);
           int chunkStart = ((startNode.start   <= currentChunk.start) && (currentChunk.start <= startNode.end))?   currentChunk.start: startNode.end;
           int chunkEnd   = ((currentNode.start <= currentChunk.end)   && (currentChunk.end   <= currentNode.end))? currentChunk.end:   currentNode.start;
