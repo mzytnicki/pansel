@@ -67,6 +67,10 @@ struct SubPath {
     nodeIds.resize(i);
   }
 
+  void sort () {
+    std::sort(nodeIds.begin(), nodeIds.end());
+  }
+
   int operator[] (std::size_t i) const { return nodeIds[i]; }
   int &operator[] (std::size_t i) { return nodeIds[i]; }
 
@@ -116,28 +120,16 @@ struct Path {
       }
     }
     outputNodes.shrink_to_fit();
-    /*
-    std::cerr << "Before:\n";
-    for (int i: outputNodes) {
-      std::cerr << "\t" << i << "->" << hashNodes[i] << "\n";
-    }
-    */
     std::sort(outputNodes.begin(), outputNodes.end(), [this](int a, int b) {return this->hashNodes[a] < this->hashNodes[b];});
-    /*
-    std::cerr << "After:\n";
-    for (int i: outputNodes) {
-      std::cerr << "\t" << i << "->" << hashNodes[i] << "\n";
-    }
-    */
   }
 
   // Extract the nodes between the two given endpoints
+  // Sort them
   void subPath (int nStart, int nEnd, SubPath &sub) {
     assert(hashNodes.find(nStart) != hashNodes.end());
     assert(hashNodes.find(nEnd) != hashNodes.end());
     int iStart = hashNodes[nStart];
     int iEnd   = hashNodes[nEnd];
-    //std::cerr << nStart << " -> " << iStart << " to " << nEnd << " -> " << iEnd << " " << " " << nodeIds.size() << "\n";
     if (iEnd < iStart) {
       std::swap(nStart, nEnd);
       iStart = hashNodes[nStart];
@@ -148,6 +140,7 @@ struct Path {
     for (int i = 0; i < size; ++i) {
       sub[i] = nodeIds[i + iStart];
     }
+    sub.sort();
   }
 
   //friend std::ostream& operator<< (std::ostream& os, const Path& p);
@@ -252,29 +245,57 @@ struct Graph {
     }
   }
 
-  void countNPaths (int nStart, int nEnd, int &nTotalPaths, int &nDifferentPaths) {
+  unsigned int getEditDistance (SubPath &sub1, SubPath &sub2) {
+    std::size_t s1 = sub1.size();
+    std::size_t s2 = sub2.size();
+    std::size_t distance = 0;
+    std::size_t i1 = 0;
+    std::size_t i2 = 0;
+    // Sweep through the two sub-paths
+    // Supposes that they are ordered
+    while ((i1 < s1) && (i2 < s2)) {
+      int n1 = sub1[i1];
+      int n2 = sub2[i2];
+      if (n1 < n2) {
+        distance += nodes[n1].size;
+        ++i1;
+      }
+      else if (n2 < n1) {
+        distance += nodes[n2].size;
+        ++i2;
+      }
+    }
+    for (; i1 < s1; ++i1) {
+      distance += nodes[sub1[i1]].size;
+    }
+    for (; i2 < s2; ++i2) {
+      distance += nodes[sub2[i2]].size;
+    }
+    return distance;
+  }
+
+  void countNPaths (int nStart, int nEnd, int &nTotalPaths, int &nDifferentPaths, int &editDistance) {
     std::vector < SubPath > subPaths;
     nTotalPaths     = 0;
     nDifferentPaths = 0;
+    editDistance    = 0;
     for (Path &path: paths) {
       if ((path.hasNodeId(nStart)) && (path.hasNodeId(nEnd))) {
-        std::vector < int > subPath;
         SubPath newSubPath;
-        bool found = false;
         ++nTotalPaths;
         path.subPath(nStart, nEnd, newSubPath);
-        for (auto &otherSubPath: subPaths) {
-          if (newSubPath == otherSubPath) {
-            found = true;
-            break;
-          }
-        }
-        if (! found) {
-          subPaths.push_back(newSubPath);
-        }
+        subPaths.push_back(newSubPath);
       }
     }
-    nDifferentPaths = subPaths.size();
+    for (std::size_t i = 1; i < subPaths.size(); ++i) {
+      for (std::size_t j = 1; j < i; ++j) {
+        std::size_t d = getEditDistance(subPaths[i], subPaths[j]);
+        if (d != 0) {
+          ++nDifferentPaths;
+        }
+        editDistance += d;
+      }
+    }
   }
 
   //friend std::ostream& operator<< (std::ostream& os, const Graph& g);
@@ -373,23 +394,21 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
     Node &node = graph.nodes[nodeId];
     PlacedNode currentNode(nodeId, length, length + node.size - 1);
     bool  inCommon  = (orderedCommonNodesBool[nodeId]);
-    //std::cerr << "Node #" << nodeId << " '" << graph.nodeNames[nodeId] << "':" << nodeStart << "-" << nodeEnd << "\tCommon: " << inCommon << "\n";
-    //std::cerr << "Chunk " << currChunkStart << "-" << currChunkEnd << "\n";
     if (currentNode.endsAfter(currentChunk)) {
       if (inCommon) {
         if (startNode.isSet()) {
-          int nTotalPaths, nDifferentPaths;
-          graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths);
+          int nTotalPaths, nDifferentPaths, editDistance;
+          graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths, editDistance);
           int chunkStart = ((startNode.start   <= currentChunk.start) && (currentChunk.start <= startNode.end))?   currentChunk.start: startNode.end;
           int chunkEnd   = ((currentNode.start <= currentChunk.end)   && (currentChunk.end   <= currentNode.end))? currentChunk.end:   currentNode.start;
-          std::cout << currentChunk.id << "\t" << chunkStart << "\t" << chunkEnd << "\t" << nDifferentPaths << "\t" << nTotalPaths << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
+          std::cout << currentChunk.id << "\t" << chunkStart << "\t" << chunkEnd << "\t" << editDistance << "\t" << nDifferentPaths << "\t" << nTotalPaths << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
           printPlacedNode(startNode, graph);
           std::cout << "\t";
           printPlacedNode(currentNode, graph);
           std::cout << "\n";
         }
         // If the chunk starts after this common node, take the previous common node
-        // in order to overestimate the size
+        // This overestimates the size
         if (currentNode.isAfter(currentChunk)) {
           startNode = commonNode;
         }
@@ -397,8 +416,9 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
           startNode = currentNode;
         }
         while (currentNode.endsAfter(currentChunk)) {
+          // The current node covers the whole chunk: stats are straightforward
           if ((currentNode.startsBefore(currentChunk)) && (currentNode.endsAfter(currentChunk))) {
-            std::cout << currentChunk.id << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t1\t" << graph.nPaths[currentNode.id] << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
+            std::cout << currentChunk.id << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t0\t1\t" << graph.nPaths[currentNode.id] << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
             printPlacedNode(currentNode, graph);
             std::cout << "\t";
             printPlacedNode(currentNode, graph);
