@@ -296,7 +296,7 @@ struct Graph {
         editDistance += d;
       }
     }
-    editDistance /= nTotalPaths * (nTotalPaths - 1) / 2
+    editDistance /= nTotalPaths * (nTotalPaths - 1) / 2;
   }
 
   //friend std::ostream& operator<< (std::ostream& os, const Graph& g);
@@ -398,7 +398,7 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
     if (currentNode.endsAfter(currentChunk)) {
       if (inCommon) {
         if (startNode.isSet()) {
-          int nTotalPaths, nDifferentPaths, editDistance;
+          int nTotalPaths, nDifferentPaths;
           float editDistance;
           graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths, editDistance);
           int chunkStart = ((startNode.start   <= currentChunk.start) && (currentChunk.start <= startNode.end))?   currentChunk.start: startNode.end;
