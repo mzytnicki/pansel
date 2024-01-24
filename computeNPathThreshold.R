@@ -26,17 +26,21 @@ if (is.null(opt$output)) {
 
 # Parse input file
 d <- read.table(opt$input, col.names = c("chr", "start", "end", "id", "n.diff.paths", "strand"))
-n <- max(d$n.diff.paths) - min(d$n.diff.paths) + 1
+n <- 100
+x <- d$n.diff.paths
+x <- (x - min(x) + 0.001) / (max(x) - min(x) + 0.002) # Rescale to avoid 0 and 1, not good for MLE
+d$n.diff.paths <- x
 
-# Fit Gamma distribution, and find thresholds
-fitG <- fitdistrplus::fitdist(d$n.diff.paths, "gamma")
-threshold <- qgamma(0.05, shape = fitG$estimate[["shape"]], rate = fitG$estimate[["rate"]])
+# Fit Beta distribution, and find thresholds
+fitB <- fitdistrplus::fitdist(d$n.diff.paths, "beta")
+print(fitB)
+threshold <- qbeta(0.05, shape1 = fitB$estimate[["shape1"]], shape2 = fitB$estimate[["shape2"]])
 print(paste0("Estimated threshold: ", threshold))
 
 # Plot distribution
 p <- ggplot2::ggplot(d, ggplot2::aes(n.diff.paths)) +
-	ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1, color = "black") +
-	ggplot2::stat_function(fun = dgamma, n = n, args = list(shape = fitG$estimate[["shape"]], rate = fitG$estimate[["rate"]]), linetype = "dashed", color = "darkgray") +
+	ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1 / n, color = "black") +
+	ggplot2::stat_function(fun = dbeta, n = n, args = list(shape1 = fitB$estimate[["shape1"]], shape2 = fitB$estimate[["shape2"]]), linetype = "dashed", color = "darkgray") +
 	ggplot2::xlab("# paths") +
 	ggplot2::ylab("Density") +
         ggplot2::geom_vline(xintercept = threshold, linetype = "dashed", color = "darkgray")
