@@ -28,32 +28,63 @@ if (is.null(opt$output)) {
 # Parse input file
 d <- read.table(opt$input, col.names = c("chr", "start", "end", "id", "distance", "strand"))
 n <- 1000
+#d$distance <- x
+## Remove the highest 10% (probably outliers)
+#l <- quantile(x, probs = 0.9)
+#x <- x[x <= l[[1]]]
+## Get the most populated 100-ile: will be the mean/median
+#s <- seq(0, 1, 1/100) * max(x)
+#q <- hist(x, breaks = s, plot = FALSE)
+#c <- q$counts
+#print(q)
+#m <- which.max(c)
+#message(print("max"))
+#message(print(m))
+#message(print(q$mids[[m]]))
+#message(print(q$counts[[m]]))
+#m <- q$mids[[m]]
+## Mirror the values greater than the midpoint
+#h <- x[x >= m]
+#j <- -h + 2 * m
+#h <- c(h, j)
+## Compute the standard deviation
+#s <- sd(j)
+#print(s)
+
+# Fit Gamma distribution, and find thresholds
+# fitG <- fitdistrplus::fitdist(d$distance, "gamma")
+# print(fitG)
+# threshold <- qgamma(0.05, shape = fitG$estimate[["shape"]], rate = fitG$estimate[["rate"]])
+# print(paste0("Estimated threshold: ", threshold))
+
+# Fit NegativeBinomial distribution, and find thresholds
+#fit <- fitdistrplus::fitdist(d$distance, "nbinom", method = "mme")
+#fit <- MASS::fitdistr(d$distance, "nbinom")
+#print(fit)
+#threshold <- qnbinom(0.05, size = fit$estimate[["size"]], mu = fit$estimate[["mu"]])
+#print(paste0("Estimated threshold: ", threshold))
+
+# Learn censored exp-normal distribution
 x <- d$distance
-r <- 1e-10
-x <- (x - min(x) + r) / (max(x) - min(x) + 2 * r) # Rescale to avoid 0 and 1, not good for MLE
-
-q <- quantile(d$distance, probs = 0.99)
-
-# Fit Beta distribution, and find thresholds
-#fitB <- fitdistrplus::fitdist(x, "beta")
-#print(fitB)
-#threshold <- qbeta(0.05, shape1 = fitB$estimate[["shape1"]], shape2 = fitB$estimate[["shape2"]])
-#print(paste0("Estimated threshold: ", threshold))
-#threshold <- qbeta(0.05, shape1 = fitB$estimate[["shape1"]], shape2 = fitB$estimate[["shape2"]])
-#print(paste0("Estimated threshold: ", threshold))
-
-fitC <-fitdistrplus::fitdist(x, "chisq", start = list(df = 0.1))
-#fitC <- MASS::fitdistr(x, "chi-squared", start = list(df = 0.1), method = "BFGS")
-print(fitC)
-threshold <- qchisq(0.05, df = fitC$estimate[["df"]])
-print(paste0("Estimated threshold: ", threshold))
+#x <- x[x > 0]
+x <- exp(x)
+d <- data.frame(distance = x)
+l <- quantile(x, probs = c(0.01, 0.99))
+print("here1")
+print(head(x))
+#fit <- fitdistrplus::fitdist(x, "norm")
+print("here2")
+#threshold <- qnorm(0.05, mean = fit$estimate[["mean"]], sd = fit$estimate[["sd"]])
 
 # Plot distribution
 p <- ggplot2::ggplot(d, ggplot2::aes(distance)) +
 	ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1 / n, color = "black") +
-	#ggplot2::stat_function(fun = dbeta, n = n, args = list(shape1 = fitB$estimate[["shape1"]], shape2 = fitB$estimate[["shape2"]]), linetype = "dashed", color = "darkgray") +
+	#ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1, color = "black") +
+	#ggplot2::stat_function(fun = dnorm, n = n, args = list(mean = fit$estimate[["mean"]], sd = fit$estimate[["sd"]]), linetype = "dashed", color = "darkgray") +
+	#ggplot2::stat_function(fun = dgamma, n = n, args = list(shape = fitG$estimate[["shape"]], rate = fitG$estimate[["rate"]]), linetype = "dashed", color = "darkgreen") +
+	#ggplot2::stat_function(fun = dnbinom, n = (l+1), args = list(size = fit$estimate[["size"]], mu = fit$estimate[["mu"]]), linetype = "dashed", color = "darkgreen") +
 	ggplot2::xlab("# paths") +
 	ggplot2::ylab("Density") +
-        ggplot2::xlim(0, q) +
-        ggplot2::geom_vline(xintercept = threshold, linetype = "dashed", color = "darkgray")
+        ggplot2::xlim(l[[1]], l[[2]])# +
+        #ggplot2::geom_vline(xintercept = threshold, linetype = "dashed", color = "darkgray")
 ggplot2::ggsave(opt$output, p)
