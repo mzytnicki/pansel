@@ -256,11 +256,15 @@ struct Graph {
     while ((i1 < s1) && (i2 < s2)) {
       int n1 = sub1[i1];
       int n2 = sub2[i2];
-      if (n1 < n2) {
+      if (n1 == n2) {
+        ++i1;
+        ++i2;
+      }
+      else if (n1 < n2) {
         distance += nodes[n1].size;
         ++i1;
       }
-      else if (n2 < n1) {
+      else {
         distance += nodes[n2].size;
         ++i2;
       }
@@ -277,7 +281,7 @@ struct Graph {
   void countNPaths (int nStart, int nEnd, int &nTotalPaths, int &nDifferentPaths, float &editDistance) {
     std::vector < SubPath > subPaths;
     nTotalPaths     = 0;
-    nDifferentPaths = 0;
+    nDifferentPaths = 1;
     editDistance    = 0.0;
     for (Path &path: paths) {
       if ((path.hasNodeId(nStart)) && (path.hasNodeId(nEnd))) {
@@ -287,13 +291,18 @@ struct Graph {
         subPaths.push_back(newSubPath);
       }
     }
+    subPaths.shrink_to_fit();
     for (std::size_t i = 1; i < subPaths.size(); ++i) {
-      for (std::size_t j = 1; j < i; ++j) {
+      bool foundEqual = false;
+      for (std::size_t j = 0; j < i; ++j) {
         std::size_t d = getEditDistance(subPaths[i], subPaths[j]);
-        if (d != 0) {
-          ++nDifferentPaths;
+        if (d == 0) {
+          foundEqual = true;
         }
         editDistance += d;
+      }
+      if (! foundEqual) {
+        ++nDifferentPaths;
       }
     }
     editDistance /= nTotalPaths * (nTotalPaths - 1) / 2;
@@ -379,7 +388,6 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
   for (int nodeId: orderedCommonNodes) {
     orderedCommonNodesBool[nodeId] = true;
   }
-
   int        length         = 1;
   int        firstNodeId    = referencePath.nodeIds.front();
   PlacedNode currentChunk(0, 1, chunkSize);
@@ -390,8 +398,9 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
     startNode.start = 1;
     startNode.end   = graph.nodes[firstNodeId].size;
   }
-  for (std::size_t i = 0; i < orderedCommonNodes.size(); ++i) {
-    int nodeId = orderedCommonNodes[i];
+  // Follow the reference path
+  for (std::size_t i = 0; i < referencePath.size(); ++i) {
+    int nodeId = referencePath.nodeIds[i];
     Node &node = graph.nodes[nodeId];
     PlacedNode currentNode(nodeId, length, length + node.size - 1);
     bool  inCommon  = (orderedCommonNodesBool[nodeId]);
