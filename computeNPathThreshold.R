@@ -1,5 +1,5 @@
 # Install packages if not present
-packageList <- c("MASS", "ggplot2", "getopt")
+packageList <- c("fitdistrplus", "ggplot2", "getopt")
 newPackages <- packageList[! (packageList %in% installed.packages()[,"Package"])]
 if (length(newPackages)) install.packages(newPackages)
 
@@ -44,20 +44,32 @@ d$nDist <- as.integer(round(d$distance * opt$binSize))
 # Compute mode
 m <- as.numeric(names(which.max(as.list(table(d$nDist)))))
 
-lim  <- max(5, m * 2)
-maxX <- m * 5
+lim1  <- max(5, m * 2)
+lim2  <- max(5, m * 3)
+maxX1 <- m * 5
+maxX2 <- maxX1 * 5
 
+ints <- data.frame(left = d$nDist, right = d$nDist)
 # Estimate negative binomial with leftmost part of the distribution
-df1 <- d[d$nDist <= lim, ]
-f1  <- MASS::fitdistr(df1$nDist, densfun = "negative binomial")
+int1 <- ints
+int1$left[d$nDist > lim1] <- lim1
+int1$right[d$nDist > lim1] <- NA
+df1 <- d[d$nDist <= lim1, ]
+f1  <- fitdistrplus::fitdistcens(int1, "nbinom")
 threshold1 <- qnbinom(opt$pvalue1, size = f1$estimate[["size"]], mu = f1$estimate[["mu"]])
+threshold2 <- qnbinom(1 - opt$pvalue2, size = f1$estimate[["size"]], mu = f1$estimate[["mu"]])
 print(f1)
+print(threshold1)
 
-# Estimate ??? low with rightmost part of the distribution
-df2 <- d[d$nDist >= lim, ]
-f2  <- MASS::fitdistr(df2$nDist, densfun = "gamma")
-threshold2 <- qgamma(1 - opt$pvalue2, shape = f2$estimate[["shape"]], rate = f2$estimate[["rate"]])
+# Estimate log normal with rightmost part of the distribution
+int2 <- ints
+int2$left[d$nDist <= lim2] <- NA
+int2$right[d$nDist <= lim2] <- lim2
+df2 <- d[d$nDist >= lim2 & d$nDist <= 5 * maxX1, ]
+f2  <- fitdistrplus::fitdistcens(int2, "lnorm")
 print(f2)
+threshold2 <- qlnorm(1 - opt$pvalue2, meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]])
+print(threshold2)
 
 # Print outliers (most conserved, least conserved) in BED format
 if (! is.null(opt$output1)) {
@@ -73,9 +85,9 @@ if (! is.null(opt$output2)) {
 if (! is.null(opt$plot1)) {
   p <- ggplot2::ggplot(df1, ggplot2::aes(nDist)) + 
     ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1, color = "black") +
-    ggplot2::stat_function(fun = dnbinom, n = maxX + 1, args = list(size = f1$estimate[["size"]], mu = f1$estimate[["mu"]]), linetype = "dotted", color = "darkgreen") +
+    ggplot2::stat_function(fun = dnbinom, n = maxX1 + 1, args = list(size = f1$estimate[["size"]], mu = f1$estimate[["mu"]]), linetype = "dotted", color = "darkgreen") +
     ggplot2::geom_vline(xintercept = m, linetype = "dotted") +
-    ggplot2::geom_vline(xintercept = lim, linetype = "dashed") +
+    ggplot2::geom_vline(xintercept = lim1, linetype = "dashed") +
     ggplot2::geom_vline(xintercept = threshold1, color = "darkred") +
     ggplot2::xlab("Edit distance") +
     ggplot2::xlim(0, maxX)
@@ -86,14 +98,13 @@ if (! is.null(opt$plot1)) {
 if (! is.null(opt$plot2)) {
   p <- ggplot2::ggplot(df2, ggplot2::aes(nDist)) + 
     ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1, color = "black") +
-    ggplot2::stat_function(fun = dgamma, n = maxX + 1, args = list(shape = f2$estimate[["shape"]], rate = f2$estimate[["rate"]]), linetype = "dotted", color = "darkgreen") +
+    ggplot2::stat_function(fun = dlnorm, n = maxX2 + 1 - lim2, args = list(meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]]), linetype = "dotted", color = "darkgreen") +
     ggplot2::geom_vline(xintercept = m, linetype = "dotted") +
-    ggplot2::geom_vline(xintercept = lim, linetype = "dashed") +
+    ggplot2::geom_vline(xintercept = lim2, linetype = "dashed") +
     ggplot2::geom_vline(xintercept = threshold2, color = "darkred") +
     ggplot2::xlab("Edit distance") +
-    ggplot2::xlim(lim, 5 * maxX)
+    ggplot2::xlim(lim2, 5 * maxX)
     ggplot2::ggsave(opt$plot2, p)
 }
-
 
 q(status = 0)
