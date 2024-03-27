@@ -119,6 +119,17 @@ Merge output files, and produce a BED file:
 
 ### Step 4
 
-Fit a Gamma distribution to the number of paths, and get the 5% threshold (the R script file is included in the repository):
+Fit distributions to the number of paths, and get the 5% threshold for the most conserved, and the most divergent regions (the R script file is included in the repository):
 
-    Rscript computeNPathThreshold.R -i chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed -o fit.png
+    Rscript computeNPathThreshold.R -i chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed -b 1000 -p 0.05 -P 0.05 -t fit_conserved.png -o fit_conserved.bed -T fit_divergent.png -O fit_divergent.bed &> fit.log
+
+The parameters are:
+
+    -i string: the input file, output of the previous step
+    -b integer: the bin size
+    -p float: the p-value threshold of the conserved regions
+    -t string: a figure of the conserved regions fit
+    -o string: the conserved regions, in BED format
+    -P float: the p-value threshold of the divergent regions
+    -T string: a figure of the divergent regions fit
+    -O string: the divergent regions, in BED format
