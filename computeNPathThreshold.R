@@ -9,8 +9,7 @@ spec <- matrix(c('help',    'h', 0, "logical",
                  'binSize', 'b', 1, "integer",
                  'pvalue1', 'p', 1, "numeric",
                  'pvalue2', 'P', 1, "numeric",
-                 'plot1',   't', 1, "character",
-                 'plot2',   'T', 1, "character",
+                 'plot',    't', 1, "character",
                  'output1', 'o', 1, "character",
                  'output2', 'O', 1, "character"),
                byrow = TRUE, ncol = 4)
@@ -18,6 +17,7 @@ opt <- getopt::getopt(spec)
 
 # Print usage if requested
 if (! is.null(opt$help)) {
+  cat("This tool reads the merged output of PanSel.\nIt computes the most conserved (output1), and most divergent regions (output2), computed by PanSel, as BED files.\nThe plot provides\n - the fit (in dashed green) of the observed distribution (solid black line),\n - the p-value thresholds for the most conserved (dotted blue) and most divergent (dotted red) regions.\n")
   cat(getopt::getopt(spec, usage = TRUE))
   q(status = 1)
 }
@@ -45,7 +45,7 @@ d$nDist <- as.integer(round(d$distance * opt$binSize))
 m <- as.numeric(names(which.max(as.list(table(d$nDist)))))
 
 lim1  <- max(5, m * 2)
-lim2  <- max(5, m * 3)
+lim2  <- 0
 maxX1 <- m * 5
 maxX2 <- maxX1 * 5
 
@@ -61,15 +61,13 @@ threshold2 <- qnbinom(1 - opt$pvalue2, size = f1$estimate[["size"]], mu = f1$est
 print(f1)
 print(threshold1)
 
-# Estimate log normal with rightmost part of the distribution
-int2 <- ints
-int2$left[d$nDist <= lim2] <- NA
-int2$right[d$nDist <= lim2] <- lim2
-df2 <- d[d$nDist >= lim2 & d$nDist <= 5 * maxX1, ]
-f2  <- fitdistrplus::fitdistcens(int2, "lnorm")
+# Estimate log normal with the positive part of distribution
+f2 <- fitdistrplus::fitdist(d$nDist[d$nDist > 0], "lnorm")
 print(f2)
 threshold2 <- qlnorm(1 - opt$pvalue2, meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]])
 print(threshold2)
+
+df3 <- d[d$nDist <= maxX2, ]
 
 # Print outliers (most conserved, least conserved) in BED format
 if (! is.null(opt$output1)) {
@@ -81,30 +79,19 @@ if (! is.null(opt$output2)) {
   write.table(output2, file = opt$output2, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
 }
 
-# Plot leftmost output
-if (! is.null(opt$plot1)) {
-  p <- ggplot2::ggplot(df1, ggplot2::aes(nDist)) + 
+# Plot
+if (! is.null(opt$plot)) {
+  f <- function(.x, size, mu, meanlog, sdlog) {
+    return((dnbinom(round(.x), size = size, mu = mu) + dlnorm(.x, meanlog = meanlog, sdlog = sdlog)) / 2)
+  }
+  p <- ggplot2::ggplot(df3, ggplot2::aes(nDist)) + 
     ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1, color = "black") +
-    ggplot2::stat_function(fun = dnbinom, n = maxX1 + 1, args = list(size = f1$estimate[["size"]], mu = f1$estimate[["mu"]]), linetype = "dotted", color = "darkgreen") +
-    ggplot2::geom_vline(xintercept = m, linetype = "dotted") +
-    ggplot2::geom_vline(xintercept = lim1, linetype = "dashed") +
-    ggplot2::geom_vline(xintercept = threshold1, color = "darkred") +
+    ggplot2::stat_function(fun = f, n = maxX2 + 1, args = list(size = f1$estimate[["size"]], mu = f1$estimate[["mu"]], meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]]), linetype = "dashed", color = "darkgreen") +
+    ggplot2::geom_vline(xintercept = threshold1, linetype = "dotted", color = "darkblue") +
+    ggplot2::geom_vline(xintercept = threshold2, linetype = "dotted", color = "darkred") +
     ggplot2::xlab("Edit distance") +
-    ggplot2::xlim(0, maxX)
-    ggplot2::ggsave(opt$plot1, p)
-}
-
-# Plot rightmost output
-if (! is.null(opt$plot2)) {
-  p <- ggplot2::ggplot(df2, ggplot2::aes(nDist)) + 
-    ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 1, color = "black") +
-    ggplot2::stat_function(fun = dlnorm, n = maxX2 + 1 - lim2, args = list(meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]]), linetype = "dotted", color = "darkgreen") +
-    ggplot2::geom_vline(xintercept = m, linetype = "dotted") +
-    ggplot2::geom_vline(xintercept = lim2, linetype = "dashed") +
-    ggplot2::geom_vline(xintercept = threshold2, color = "darkred") +
-    ggplot2::xlab("Edit distance") +
-    ggplot2::xlim(lim2, 5 * maxX)
-    ggplot2::ggsave(opt$plot2, p)
+    ggplot2::xlim(0, maxX2)
+    ggplot2::ggsave(opt$plot, p)
 }
 
 q(status = 0)
