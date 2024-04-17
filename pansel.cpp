@@ -444,10 +444,10 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
     }
     length += node.size;
     if (i % 10000 == 0) {
-      std::cerr << i << "/" << orderedCommonNodes.size() << " nodes visited.\r" << std::flush;
+      std::cerr << i << "/" << referencePath.size() << " nodes visited.\r" << std::flush;
     }
   }
-  std::cerr << orderedCommonNodes.size() << "/" << orderedCommonNodes.size() << " nodes visited.\n";
+  std::cerr << referencePath.size() << "/" << referencePath.size() << " nodes visited.\n";
 }
 
 void printUsage () {
