@@ -6,7 +6,6 @@ if (length(newPackages)) install.packages(newPackages)
 # Parse args
 spec <- matrix(c('help',    'h', 0, "logical",
                  'input',   'i', 1, "character",
-                 'binSize', 'b', 1, "integer",
                  'pvalue1', 'p', 1, "numeric",
                  'pvalue2', 'P', 1, "numeric",
                  'plot',    't', 1, "character",
@@ -33,13 +32,10 @@ if (is.null(opt$pvalue2)) {
 if (is.null(opt$input)) {
   stop("Missing input file.")
 }
-if (is.null(opt$binSize)) {
-  stop("Missing bin size.")
-}
 
 # Parse input file
 d <- read.table(opt$input, col.names = c("chr", "start", "end", "id", "distance", "strand"))
-d$nDist <- as.integer(round(d$distance * opt$binSize))
+d$nDist <- as.integer(round(d$distance))
 
 # Compute mode
 m <- as.numeric(names(which.max(as.list(table(d$nDist)))))
@@ -66,6 +62,9 @@ f2 <- fitdistrplus::fitdist(d$nDist[d$nDist > 0], "lnorm")
 print(f2)
 threshold2 <- qlnorm(1 - opt$pvalue2, meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]])
 print(threshold2)
+if (maxX2 < threshold2) {
+  maxX2 <- threshold2 * 1.2
+}
 
 df3 <- d[d$nDist <= maxX2, ]
 
