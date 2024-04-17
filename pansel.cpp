@@ -193,7 +193,7 @@ struct Graph {
     }
     int m = 0;
     int a = -1;
-    for (std::size_t i = 0; i < counts.size(); ++i) {
+    for (std::size_t i = 3; i < counts.size(); ++i) {
       if (counts[i] > m) {
         m = counts[i];
         a = i;
