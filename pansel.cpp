@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cassert>
 
-static const char VERSION[] = "0.99.0";
+static const char VERSION[] = "1.00.0";
 
 // A Node contains:
 //  - the size of the sequence
