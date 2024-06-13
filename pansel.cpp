@@ -378,7 +378,7 @@ struct Parser {
     // Do not insert strand
     unsigned int stringStart = 1;
     for (unsigned int stringEnd = 1; stringEnd < mergedPath.size(); ++stringEnd) {
-      if (mergedPath[stringEnd] == '>' | mergedPath[stringEnd] == '<') {
+      if (mergedPath[stringEnd] == '>' || mergedPath[stringEnd] == '<') {
         // Do not insert strand
         int nodeId = graph.nodeIds[mergedPath.substr(stringStart, stringEnd - stringStart)];
         graph.paths.back().addNode(nodeId);
