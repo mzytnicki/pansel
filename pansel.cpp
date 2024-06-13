@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cassert>
 
-static const char VERSION[] = "1.00.0";
+static const char VERSION[] = "1.01.0";
 
 // A Node contains:
 //  - the size of the sequence
@@ -357,6 +357,37 @@ struct Parser {
       int nodeId = graph.nodeIds[nodeName];
       graph.paths.back().addNode(nodeId);
     }
+    for (Path &path: graph.paths) {
+      path.nodeIds.shrink_to_fit();
+    }
+    graph.paths.shrink_to_fit();
+  }
+
+  void parseWalk (std::string &line) {
+    // Nodes should be parsed. Adapt vector sizes
+    graph.nodes.shrink_to_fit();
+    graph.nodeNames.shrink_to_fit();
+    std::istringstream formattedLine(line);
+    char tag;
+    int hapIndex;
+    unsigned long start, end;
+    std::string pathName, mergedPath, seqId;
+    formattedLine >> tag >> pathName >> hapIndex >> seqId >> start >> end >> mergedPath;
+    graph.paths.emplace_back(pathName);
+    std::string nodeName;
+    // Do not insert strand
+    unsigned int stringStart = 1;
+    for (unsigned int stringEnd = 1; stringEnd < mergedPath.size(); ++stringEnd) {
+      if (mergedPath[stringEnd] == '>' | mergedPath[stringEnd] == '<') {
+        // Do not insert strand
+        int nodeId = graph.nodeIds[mergedPath.substr(stringStart, stringEnd - stringStart)];
+        graph.paths.back().addNode(nodeId);
+        stringStart = stringEnd + 1;
+      }
+    }
+    // Insert last node
+    int nodeId = graph.nodeIds[mergedPath.substr(stringStart)];
+    graph.paths.back().addNode(nodeId);
     for (Path &path: graph.paths) {
       path.nodeIds.shrink_to_fit();
     }
