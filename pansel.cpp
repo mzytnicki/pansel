@@ -142,18 +142,7 @@ struct Path {
     }
     sub.sort();
   }
-
-  //friend std::ostream& operator<< (std::ostream& os, const Path& p);
 };
-
-/*
-std::ostream& operator<<(std::ostream& os, const Path& p) {
-    os << p.name << ":";
-    for (int i: p.nodeIds) {
-      os << " " << i;
-    return os;
-}
-*/
 
 
 // A Graph contains:
@@ -245,10 +234,11 @@ struct Graph {
     }
   }
 
-  unsigned int getEditDistance (SubPath &sub1, SubPath &sub2) {
+  double getJaccard (SubPath &sub1, SubPath &sub2) {
     std::size_t s1 = sub1.size();
     std::size_t s2 = sub2.size();
-    std::size_t distance = 0;
+    std::size_t n_inter = 0;
+    std::size_t n_union = 0;
     std::size_t i1 = 0;
     std::size_t i2 = 0;
     // Sweep through the two sub-paths
@@ -257,32 +247,35 @@ struct Graph {
       int n1 = sub1[i1];
       int n2 = sub2[i2];
       if (n1 == n2) {
+        n_inter += nodes[n1].size;
+        n_union += nodes[n1].size;
         ++i1;
         ++i2;
       }
       else if (n1 < n2) {
-        distance += nodes[n1].size;
+        n_union += nodes[n1].size;
         ++i1;
       }
       else {
-        distance += nodes[n2].size;
+        n_union += nodes[n2].size;
         ++i2;
       }
     }
     for (; i1 < s1; ++i1) {
-      distance += nodes[sub1[i1]].size;
+      n_union += nodes[sub1[i1]].size;
     }
     for (; i2 < s2; ++i2) {
-      distance += nodes[sub2[i2]].size;
+      n_union += nodes[sub2[i2]].size;
     }
-    return distance;
+    if (n_union == 0) return 0;
+    return (n_inter / n_union);
   }
 
-  void countNPaths (int nStart, int nEnd, int &nTotalPaths, int &nDifferentPaths, float &editDistance) {
+  void countNPaths (int nStart, int nEnd, int &nTotalPaths, int &nDifferentPaths, float &jaccard) {
     std::vector < SubPath > subPaths;
     nTotalPaths     = 0;
     nDifferentPaths = 1;
-    editDistance    = 0.0;
+    jaccard         = 0.0;
     for (Path &path: paths) {
       if ((path.hasNodeId(nStart)) && (path.hasNodeId(nEnd))) {
         SubPath newSubPath;
@@ -295,20 +288,18 @@ struct Graph {
     for (std::size_t i = 1; i < subPaths.size(); ++i) {
       bool foundEqual = false;
       for (std::size_t j = 0; j < i; ++j) {
-        std::size_t d = getEditDistance(subPaths[i], subPaths[j]);
+        double d = getJaccard(subPaths[i], subPaths[j]);
         if (d == 0) {
           foundEqual = true;
         }
-        editDistance += d;
+        jaccard += d;
       }
       if (! foundEqual) {
         ++nDifferentPaths;
       }
     }
-    editDistance /= nTotalPaths * (nTotalPaths - 1) / 2;
+   jaccard /= nTotalPaths * (nTotalPaths - 1) / 2;
   }
-
-  //friend std::ostream& operator<< (std::ostream& os, const Graph& g);
 };
 
 /*
@@ -378,7 +369,7 @@ struct Parser {
     // Do not insert strand
     unsigned int stringStart = 1;
     for (unsigned int stringEnd = 1; stringEnd < mergedPath.size(); ++stringEnd) {
-      if (mergedPath[stringEnd] == '>' || mergedPath[stringEnd] == '<') {
+      if ((mergedPath[stringEnd] == '>') || (mergedPath[stringEnd] == '<')) {
         // Do not insert strand
         int nodeId = graph.nodeIds[mergedPath.substr(stringStart, stringEnd - stringStart)];
         graph.paths.back().addNode(nodeId);
@@ -439,11 +430,11 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
       if (inCommon) {
         if (startNode.isSet()) {
           int nTotalPaths, nDifferentPaths;
-          float editDistance;
-          graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths, editDistance);
+          float jaccard;
+          graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths, jaccard);
           int chunkStart = ((startNode.start   <= currentChunk.start) && (currentChunk.start <= startNode.end))?   currentChunk.start: startNode.end;
           int chunkEnd   = ((currentNode.start <= currentChunk.end)   && (currentChunk.end   <= currentNode.end))? currentChunk.end:   currentNode.start;
-          std::cout << currentChunk.id << "\t" << chunkStart << "\t" << chunkEnd << "\t" << editDistance << "\t" << nDifferentPaths << "\t" << nTotalPaths << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
+          std::cout << currentChunk.id << "\t" << chunkStart << "\t" << chunkEnd << "\t" << jaccard << "\t" << nDifferentPaths << "\t" << nTotalPaths << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
           printPlacedNode(startNode, graph);
           std::cout << "\t";
           printPlacedNode(currentNode, graph);
