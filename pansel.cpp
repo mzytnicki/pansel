@@ -237,10 +237,10 @@ struct Graph {
   double getJaccard (SubPath &sub1, SubPath &sub2) {
     std::size_t s1 = sub1.size();
     std::size_t s2 = sub2.size();
-    std::size_t n_inter = 0;
-    std::size_t n_union = 0;
     std::size_t i1 = 0;
     std::size_t i2 = 0;
+    double n_inter = 0;
+    double n_union = 0;
     // Sweep through the two sub-paths
     // Supposes that they are ordered
     while ((i1 < s1) && (i2 < s2)) {
@@ -289,7 +289,7 @@ struct Graph {
       bool foundEqual = false;
       for (std::size_t j = 0; j < i; ++j) {
         double d = getJaccard(subPaths[i], subPaths[j]);
-        if (d == 0) {
+        if (d == 1) {
           foundEqual = true;
         }
         jaccard += d;
@@ -301,15 +301,6 @@ struct Graph {
    jaccard /= nTotalPaths * (nTotalPaths - 1) / 2;
   }
 };
-
-/*
-std::ostream& operator<<(std::ostream& os, const Graph& g) {
-  for (Path &p: paths) {
-    os << p << "\n";
-  }
-  return os;
-};
-*/
 
 
 struct Parser {
