@@ -34,7 +34,7 @@ if (is.null(opt$input)) {
 }
 
 # Parse input file
-input <- read.table("/Scratch/mazytnicki/PanSel/Results/MGC/10000/chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed", col.names = c("chr", "start", "end", "id", "index", "strand"))
+input <- read.table(opt$input, col.names = c("chr", "start", "end", "id", "index", "strand"))
 
 # Transform to log, remove zeros (hopefully, few)
 d <- input$index
