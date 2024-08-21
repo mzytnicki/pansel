@@ -1,5 +1,5 @@
 # Install packages if not present
-packageList <- c("fitdistrplus", "ggplot2", "getopt")
+packageList <- c("ggplot2", "getopt")
 newPackages <- packageList[! (packageList %in% installed.packages()[,"Package"])]
 if (length(newPackages)) install.packages(newPackages)
 
