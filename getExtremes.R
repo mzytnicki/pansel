@@ -1,5 +1,5 @@
 # Install packages if not present
-packageList <- c("ggplot2", "getopt")
+packageList <- c("MASS", "ggplot2", "getopt")
 newPackages <- packageList[! (packageList %in% installed.packages()[,"Package"])]
 if (length(newPackages)) install.packages(newPackages)
 
@@ -35,6 +35,14 @@ if (is.null(opt$input)) {
 
 # Parse input file
 input <- read.table(opt$input, col.names = c("chr", "start", "end", "id", "index", "strand"))
+
+# Infer bin size
+input$size <- input$end - input$start
+binSize <- as.numeric(names(sort(-table(input$size)))[1])
+
+# Remove too small or too large bins
+input <- input[input$size >= binSize / 2, ]
+input <- input[input$size <= binSize * 2, ]
 
 # Transform to log, remove zeros (hopefully, few)
 d <- input$index
