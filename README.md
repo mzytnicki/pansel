@@ -92,7 +92,7 @@ This will detail an example of a real use of `pansel`.
 
 Dowload the HPRC data (1 file per chromosome, restrict to autosomes), and tranform from VG to GFA format using `vg view`:
 
-    for i in `seq 2 22`
+    for i in `seq 1 22`
     do
       wget https://s3-us-west-2.amazonaws.com/human-pangenomics/pangenomes/scratch/2022_03_11_minigraph_cactus/chrom-graphs-hprc-v1.1-mc-chm13-full/chr${i}.vg
       vg view chr${i}.vg | gzip -c > chr_${i}_hprc-v1.1-mc-chm13-full.gfa.gz
