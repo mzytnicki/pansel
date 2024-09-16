@@ -330,19 +330,23 @@ struct Parser {
     char tag;
     std::string pathName, mergedPath;
     formattedLine >> tag >> pathName >> mergedPath;
-    std::istringstream formattedPath(mergedPath);
-    graph.paths.emplace_back(pathName);
-    std::string nodeName;
-    while (std::getline(formattedPath, nodeName, ',')) {
-      // Last char is the direction. Remove it.
-      nodeName.pop_back();
-      int nodeId = graph.nodeIds[nodeName];
-      graph.paths.back().addNode(nodeId);
+    // Path with names "_MINIGRAPH_.sXXXX" are spurious.
+    // Remove them.
+    if (pathName.find("_MINIGRAPH_") == std::string::npos) {
+      std::istringstream formattedPath(mergedPath);
+      graph.paths.emplace_back(pathName);
+      std::string nodeName;
+      while (std::getline(formattedPath, nodeName, ',')) {
+        // Last char is the direction. Remove it.
+        nodeName.pop_back();
+        int nodeId = graph.nodeIds[nodeName];
+        graph.paths.back().addNode(nodeId);
+      }
+      for (Path &path: graph.paths) {
+        path.nodeIds.shrink_to_fit();
+      }
+      graph.paths.shrink_to_fit();
     }
-    for (Path &path: graph.paths) {
-      path.nodeIds.shrink_to_fit();
-    }
-    graph.paths.shrink_to_fit();
   }
 
   void parseWalk (std::string &line) {
@@ -385,6 +389,9 @@ struct Parser {
         }
         else if (line[0] == 'P') {
           parsePath(line);
+        }
+        else if (line[0] == 'W') {
+          parseWalk(line);
         }
       }
     }
