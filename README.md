@@ -95,7 +95,7 @@ Dowload the HPRC data (1 file per chromosome, restrict to autosomes), and tranfo
     for i in `seq 1 22`
     do
       wget https://s3-us-west-2.amazonaws.com/human-pangenomics/pangenomes/scratch/2022_03_11_minigraph_cactus/chrom-graphs-hprc-v1.1-mc-chm13-full/chr${i}.vg
-      vg view chr${i}.vg | gzip -c > chr_${i}_hprc-v1.1-mc-chm13-full.gfa.gz
+      vg view chr${i}.vg | gzip -c > chr${i}.gfa.gz
       rm chr${i}.vg
     done
 
@@ -105,7 +105,7 @@ Dowload the HPRC data (1 file per chromosome, restrict to autosomes), and tranfo
 
     for i in `seq 1 22`
     do
-      /usr/bin/time ./pansel -i <( zcat chr_${i}_hprc-v1.1-mc-chm13-full.gfa.gz ) -r GRCh38.0.chr${i} -n 91 > chr_${i}_hprc-v1.1-mc-chm13-full_GRCh38.0.chr${i}.tsv 2> chr_${i}_hprc-v1.1-mc-chm13-full_GRCh38.0.chr${i}.log
+      /usr/bin/time ./pansel -i <( zcat chr${i}.gfa.gz ) -r GRCh38.0.chr${i} -n 91 > chr${i}.tsv 2> chr${i}.log
     done
 
 ### Step 3
@@ -114,14 +114,14 @@ Merge output files, and produce a BED file:
 
     for i in `seq 1 22`
     do
-      sed "s/^/chr${i}\t/g" chr_${i}_hprc-v1.1-mc-chm13-full_GRCh38.0.chr${i}.tsv
-    done | awk '{print $1 "\t" ($3-1) "\t" $4 "\tbin_" NR "\t" $5 "\t+"}' > chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed
+      sed "s/^/chr${i}\t/g" chr${i}.tsv
+    done | awk '{print $1 "\t" ($3-1) "\t" $4 "\tbin_" NR "\t" $5 "\t+"}' > chrall.bed
 
 ### Step 4
 
 Fit distributions to the number of paths, and get the 5% threshold for the most conserved, and the most divergent regions (the R script file is included in the repository):
 
-    Rscript getExtremes.R -i chr_all_hprc-v1.1-mc-chm13-full_GRCh38.0.chrall.bed -p 0.05 -P 0.05 -t fit.png -o fit_conserved.bed -O fit_divergent.bed &> fit.log
+    Rscript getExtremes.R -i chrall.bed -p 0.05 -P 0.05 -t fit.png -o fit_conserved.bed -O fit_divergent.bed &> fit.log
 
 The parameters are:
 
