@@ -63,16 +63,17 @@ The meaning is:
    1. An ID of the bin.
    2. The targeted start position of the bin.
    3. The targeted end position of the bin.
-   4. The average edit distance between each pair of paths from first anchor node to the last anchor node.
-   5. The number of paths from first anchor node to the last anchor node (2 identical paths will be counted twice).
-   6. The start position used (is different from the targeted start position when no anchor node overlaps in the bin start position).
-   7. The end position used (is different from the targeted end position when no anchor node overlaps in the bin end position).
-   8. The name of the left-most anchor node.
-   9. The start position of the left-most anchor node.
-  10. The end position of the left-most anchor node.
-  11. The name of the right-most anchor node.
-  12. The start position of the right-most anchor node.
-  13. The end position of the right-most anchor node.
+   4. The Jaccard index between each pair of paths from first anchor node to the last anchor node.
+   5. The number of different paths from first anchor node to the last anchor node (2 identical paths will be counted once).
+   6. The total number of paths from first anchor node to the last anchor node (2 identical paths will be counted twice).
+   7. The start position used (is different from the targeted start position when no anchor node overlaps in the bin start position).
+   8. The end position used (is different from the targeted end position when no anchor node overlaps in the bin end position).
+   9. The name of the left-most anchor node.
+  10. The start position of the left-most anchor node.
+  11. The end position of the left-most anchor node.
+  12. The name of the right-most anchor node.
+  13. The start position of the right-most anchor node.
+  14. The end position of the right-most anchor node.
 
 Notes:
 
