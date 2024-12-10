@@ -84,8 +84,14 @@ Notes:
 
 This file contains different statistics on the GFA file, as well as the reference path.
 
+## Testing `pansel`
 
-## Example of use
+You can use `pansel` on a small sample, provided by the [Panacus](https://github.com/marschall-lab/panacus/) package:
+
+    wget -c https://zenodo.org/record/7937947/files/ecoli50.gfa.zst
+    ./pansel -i <( zstd -d -c ecoli50.gfa.zst ) -r GCF_019614135.1#1#NZ_CP080645.1 > ecoli.out 2> ecoli.log
+
+## Example of real use
 
 This will detail an example of a real use of `pansel`.
 
