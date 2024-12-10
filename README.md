@@ -139,3 +139,9 @@ The parameters are:
     -O string:  the divergent regions, in BED format
     -t string:  a plot of the fit (observed: solid black, fit: dashed green, conserved threshold: dotted blue, divergent threshold: dotted red)
     -h:         a help message
+
+## How to build my pangenome graph?
+
+There are many ways to do so.
+One possibility is to use a dedicated pipe-line: the [nf-core pangenome pipe-line](https://nf-co.re/pangenome/).
+Otherwise, you can follow the procedure I used to [build a small pangenome](https://github.com/mzytnicki/pansel_paper) (see Create graph for *M_xanthus*).
