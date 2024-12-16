@@ -86,7 +86,7 @@ This file contains different statistics on the GFA file, as well as the referenc
 
 ## Testing `pansel`
 
-You can use `pansel` on a small sample, provided by the [Panacus](https://github.com/marschall-lab/panacus/) package:
+You can use `pansel` on a small sample, provided by the [BubbleGun](https://github.com/fawaz-dabbaghieh/bubble_gun) package:
 
     wget -c https://zenodo.org/record/7937947/files/ecoli50.gfa.zst
     ./pansel -i <( zstd -d -c ecoli50.gfa.zst ) -r GCF_019614135.1#1#NZ_CP080645.1 > ecoli.out 2> ecoli.log
