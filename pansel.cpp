@@ -403,7 +403,7 @@ void printPlacedNode(PlacedNode &n, Graph &g) {
   std::cout << g.nodeNames[n.id] << "\t" << n.start << "\t" << n.end;
 }
 
-void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orderedCommonNodes, int chunkSize) {
+void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orderedCommonNodes, int chunkSize, std::string &chrName) {
   std::vector < bool > orderedCommonNodesBool (graph.nodes.size(), false);
   for (int nodeId: orderedCommonNodes) {
     orderedCommonNodesBool[nodeId] = true;
@@ -432,11 +432,16 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
           graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths, jaccard);
           int chunkStart = ((startNode.start   <= currentChunk.start) && (currentChunk.start <= startNode.end))?   currentChunk.start: startNode.end;
           int chunkEnd   = ((currentNode.start <= currentChunk.end)   && (currentChunk.end   <= currentNode.end))? currentChunk.end:   currentNode.start;
-          std::cout << currentChunk.id << "\t" << chunkStart << "\t" << chunkEnd << "\t" << jaccard << "\t" << nDifferentPaths << "\t" << nTotalPaths << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
-          printPlacedNode(startNode, graph);
-          std::cout << "\t";
-          printPlacedNode(currentNode, graph);
-          std::cout << "\n";
+          if (chrName.empty()) {
+            std::cout << currentChunk.id << "\t" << chunkStart << "\t" << chunkEnd << "\t" << jaccard << "\t" << nDifferentPaths << "\t" << nTotalPaths << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
+            printPlacedNode(startNode, graph);
+            std::cout << "\t";
+            printPlacedNode(currentNode, graph);
+            std::cout << "\n";
+          }
+          else {
+            std::cout << chrName << "\t" << chunkStart << "\t" << chunkEnd << "\tregion_" << currentChunk.id << "\t" << jaccard << "\t+\n";
+          }
         }
         // If the chunk starts after this common node, take the previous common node
         // This overestimates the size
@@ -477,15 +482,16 @@ void printUsage () {
        "  -i string: file name in GFA format\n"
        "  -r string: reference path name (should be in the GFA)\n"
        "Optional parameters:\n"
-       "  -z int: bin size (default: 1000)\n"
-       "  -n int: min # paths\n"
+       "  -z int:    bin size (default: 1000)\n"
+       "  -n int:    min # paths\n"
+       "  -b string: use BED format, and print the parameter as reference name\n"
        "Other:\n"
        "  -h: print this help and exit\n"
        "  -v: print version number to stderr");
   exit(EXIT_SUCCESS);
 }
 
-void parseParameters (int argc, char const **argv, std::string &pangenomeFileName, std::string &reference, int &chunkSize, int &minNPaths) {
+void parseParameters (int argc, char const **argv, std::string &pangenomeFileName, std::string &reference, int &chunkSize, int &minNPaths, std::string &chrName) {
   for (int i = 1; i < argc; ++i) {
     std::string s(argv[i]);
     if (s == "-i") {
@@ -499,6 +505,9 @@ void parseParameters (int argc, char const **argv, std::string &pangenomeFileNam
     }
     else if (s == "-n") {
       minNPaths = std::stoi(argv[++i]);
+    }
+    else if (s == "-b") {
+      chrName = argv[++i];
     }
     else if (s == "-h") {
       printUsage();
@@ -526,9 +535,10 @@ void parseParameters (int argc, char const **argv, std::string &pangenomeFileNam
 int main (int argc, const char* argv[]) {
   std::string pangenomeFileName;
   std::string reference;
+  std::string chrName;
   int         chunkSize = 1000;
   int         minNPaths = -1;
-  parseParameters(argc, argv, pangenomeFileName, reference, chunkSize, minNPaths);
+  parseParameters(argc, argv, pangenomeFileName, reference, chunkSize, minNPaths, chrName);
   Graph       graph;
   Parser      parser(pangenomeFileName, graph);
   parser.parseFile();
@@ -544,6 +554,6 @@ int main (int argc, const char* argv[]) {
   referencePath.orderNodes(commonNodes, orderedCommonNodes);
   std::cerr << commonNodes.size() << " nodes are above the threshold, " << orderedCommonNodes.size() << " are in reference path.\n";
 
-  computeNPaths(graph, referencePath, orderedCommonNodes, chunkSize);
+  computeNPaths(graph, referencePath, orderedCommonNodes, chunkSize, chrName);
   return EXIT_SUCCESS;
 }
