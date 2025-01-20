@@ -35,6 +35,7 @@ Typing `make` with a fairly decent C++ compiler (compatible with C++11) should d
     Optional parameters:
       -z int: bin size (default: 1000)
       -n int: min # paths
+      -b string: use BED format, and print the parameter as reference name
     Other:
       -h: print this help and exit
       -v: print version number to stderr
