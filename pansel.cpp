@@ -85,14 +85,20 @@ struct SubPath {
 
 // A Path contains:
 //  - a name
+//  - a (possibly empty) seqid
+//  - a start position (w.r.t. the genome sequence)
 //  - a list of indices of Node
 //  - a dictionary that gives the position of a Node in the previous list, given its id
 struct Path {
   std::string name;
+  std::string seqId;
+  unsigned long start;
   std::vector < int > nodeIds;
   std::unordered_map < int, int > hashNodes;
 
-  Path (std::string &n): name(n) {}
+  Path (std::string &n): name(n), start(0) {}
+
+  Path (std::string &n, std::string &i, unsigned long s): name(n), seqId(i), start(s) {}
 
   std::size_t size () const {
     return nodeIds.size();
@@ -157,14 +163,33 @@ struct Graph {
   std::vector < Path > paths;
   std::vector < int > nPaths;
 
-  Path &getPath (std::string &name) {
+  Path &getPath (std::string &pathName) {
     for (Path &path: paths) {
-      if (path.name == name) {
+      if (path.name == pathName) {
         return path;
       }
     }
-    std::cerr << "Error!  Cannot find path with name '" << name << "'.\nExiting.\n";
+    std::cerr << "Error!  Cannot find path with name '" << pathName << "'.\nExiting.\n";
     exit(EXIT_FAILURE);
+  }
+
+  Path &getPath (std::string &pathName, std::string &seqId) {
+    for (Path &path: paths) {
+      if ((path.name == pathName) && (path.seqId == seqId)) {
+        return path;
+      }
+    }
+    std::cerr << "Error!  Cannot find path with name '" << pathName << ":" << seqId << "'.\nExiting.\n";
+    exit(EXIT_FAILURE);
+  }
+
+  // Copy all the seq ids for the path name
+  void getSeqIds(std::string &pathName, std::vector < std::string > &seqIds) {
+    for (Path &path: paths) {
+      if (path.name == pathName) {
+        seqIds.push_back(path.seqId);
+      }
+    }
   }
 
   void addNode (std::string &name, int size) {
@@ -359,7 +384,7 @@ struct Parser {
     unsigned long start, end;
     std::string pathName, mergedPath, seqId;
     formattedLine >> tag >> pathName >> hapIndex >> seqId >> start >> end >> mergedPath;
-    graph.paths.emplace_back(pathName);
+    graph.paths.emplace_back(pathName, seqId, start);
     std::string nodeName;
     // Do not insert strand
     unsigned int stringStart = 1;
@@ -403,20 +428,20 @@ void printPlacedNode(PlacedNode &n, Graph &g) {
   std::cout << g.nodeNames[n.id] << "\t" << n.start << "\t" << n.end;
 }
 
-void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orderedCommonNodes, int chunkSize, std::string &chrName) {
+void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orderedCommonNodes, int chunkSize, bool bedFormat, std::string &chrName) {
   std::vector < bool > orderedCommonNodesBool (graph.nodes.size(), false);
   for (int nodeId: orderedCommonNodes) {
     orderedCommonNodesBool[nodeId] = true;
   }
   int        length         = 1;
   int        firstNodeId    = referencePath.nodeIds.front();
-  PlacedNode currentChunk(0, 1, chunkSize);
+  PlacedNode currentChunk(0, 1 + referencePath.start, chunkSize + referencePath.start);
   PlacedNode startNode;
   PlacedNode commonNode;
   if (orderedCommonNodesBool[firstNodeId]) {
     startNode.id    = firstNodeId;
-    startNode.start = 1;
-    startNode.end   = graph.nodes[firstNodeId].size;
+    startNode.start = 1 + referencePath.start;
+    startNode.end   = graph.nodes[firstNodeId].size + referencePath.start;
   }
   // Follow the reference path
   for (std::size_t i = 0; i < referencePath.size(); ++i) {
@@ -432,15 +457,15 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
           graph.countNPaths(startNode.id, currentNode.id, nTotalPaths, nDifferentPaths, jaccard);
           int chunkStart = ((startNode.start   <= currentChunk.start) && (currentChunk.start <= startNode.end))?   currentChunk.start: startNode.end;
           int chunkEnd   = ((currentNode.start <= currentChunk.end)   && (currentChunk.end   <= currentNode.end))? currentChunk.end:   currentNode.start;
-          if (chrName.empty()) {
+          if (bedFormat) {
+            std::cout << chrName << "\t" << chunkStart << "\t" << chunkEnd << "\tregion_" << currentChunk.id << "\t" << jaccard << "\t+\n";
+          }
+          else {
             std::cout << currentChunk.id << "\t" << chunkStart << "\t" << chunkEnd << "\t" << jaccard << "\t" << nDifferentPaths << "\t" << nTotalPaths << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
             printPlacedNode(startNode, graph);
             std::cout << "\t";
             printPlacedNode(currentNode, graph);
             std::cout << "\n";
-          }
-          else {
-            std::cout << chrName << "\t" << chunkStart << "\t" << chunkEnd << "\tregion_" << currentChunk.id << "\t" << jaccard << "\t+\n";
           }
         }
         // If the chunk starts after this common node, take the previous common node
@@ -454,11 +479,16 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
         while (currentNode.endsAfter(currentChunk)) {
           // The current node covers the whole chunk: stats are straightforward
           if ((currentNode.startsBefore(currentChunk)) && (currentNode.endsAfter(currentChunk))) {
-            std::cout << currentChunk.id << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t0\t1\t" << graph.nPaths[currentNode.id] << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
-            printPlacedNode(currentNode, graph);
-            std::cout << "\t";
-            printPlacedNode(currentNode, graph);
-            std::cout << "\n";
+            if (bedFormat) {
+              std::cout << chrName << "\t" << currentChunk.start << "\t" << currentChunk.end << "\tregion_" << graph.nPaths[currentNode.id] << "\t1\t+\n";
+            }
+            else {
+              std::cout << currentChunk.id << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t0\t1\t" << graph.nPaths[currentNode.id] << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
+              printPlacedNode(currentNode, graph);
+              std::cout << "\t";
+              printPlacedNode(currentNode, graph);
+              std::cout << "\n";
+            }
           }
           currentChunk.offset(chunkSize);
         }
@@ -475,6 +505,25 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
   std::cerr << referencePath.size() << "/" << referencePath.size() << " nodes visited.\n";
 }
 
+void readReferencePath (Graph &graph, Path &referencePath, int chunkSize, int minNPaths, bool bedFormat, std::string &chrName) {
+  std::vector < int > commonNodes;
+  long        referenceSize  = 0;
+  for (int nodeId: referencePath.nodeIds) {
+    referenceSize += graph.nodes[nodeId].size;
+  }
+  std::cerr << "Reference path '" << referencePath.name;
+  if (! referencePath.seqId.empty()) {
+    std::cerr << ':' << referencePath.seqId;
+  }
+  std::cerr << "' contains " << referencePath.nodeIds.size() << " nodes, and " << referenceSize << " nucleotides.\n";
+  graph.findCommonNodes(minNPaths, commonNodes);
+  std::vector < int > orderedCommonNodes;
+  referencePath.orderNodes(commonNodes, orderedCommonNodes);
+  std::cerr << commonNodes.size() << " nodes are above the threshold, " << orderedCommonNodes.size() << " are in reference path.\n";
+
+  computeNPaths(graph, referencePath, orderedCommonNodes, chunkSize, bedFormat, chrName);
+}
+
 void printUsage () {
   puts("Usage:\n"
        "pansel [parameters] > output_file 2> log_file\n\n"
@@ -484,14 +533,15 @@ void printUsage () {
        "Optional parameters:\n"
        "  -z int:    bin size (default: 1000)\n"
        "  -n int:    min # paths\n"
-       "  -b string: use BED format, and print the parameter as reference name\n"
+       "  -b:        use BED (shorter) format\n"
+       "  -c string: reference name (if the graph contains 1 chromosome)\n"
        "Other:\n"
        "  -h: print this help and exit\n"
        "  -v: print version number to stderr");
   exit(EXIT_SUCCESS);
 }
 
-void parseParameters (int argc, char const **argv, std::string &pangenomeFileName, std::string &reference, int &chunkSize, int &minNPaths, std::string &chrName) {
+void parseParameters (int argc, char const **argv, std::string &pangenomeFileName, std::string &reference, int &chunkSize, int &minNPaths, bool &bedFormat, std::string &chrName) {
   for (int i = 1; i < argc; ++i) {
     std::string s(argv[i]);
     if (s == "-i") {
@@ -507,6 +557,9 @@ void parseParameters (int argc, char const **argv, std::string &pangenomeFileNam
       minNPaths = std::stoi(argv[++i]);
     }
     else if (s == "-b") {
+      bedFormat = true;
+    }
+    else if (s == "-c") {
       chrName = argv[++i];
     }
     else if (s == "-h") {
@@ -538,22 +591,22 @@ int main (int argc, const char* argv[]) {
   std::string chrName;
   int         chunkSize = 1000;
   int         minNPaths = -1;
-  parseParameters(argc, argv, pangenomeFileName, reference, chunkSize, minNPaths, chrName);
+  bool        bedFormat = false;
+  parseParameters(argc, argv, pangenomeFileName, reference, chunkSize, minNPaths, bedFormat, chrName);
   Graph       graph;
   Parser      parser(pangenomeFileName, graph);
   parser.parseFile();
-  Path       &referencePath = graph.getPath(reference);
-  std::vector < int > commonNodes;
-  long        referenceSize  = 0;
-  for (int nodeId: referencePath.nodeIds) {
-    referenceSize += graph.nodes[nodeId].size;
+  if (chrName.empty()) {
+    std::vector < std::string > seqIds;
+    graph.getSeqIds(reference, seqIds);
+    for (std::string &seqId: seqIds) {
+      Path &referencePath = graph.getPath(reference, seqId);
+      readReferencePath(graph, referencePath, chunkSize, minNPaths, bedFormat, seqId);
+    }
   }
-  std::cerr << "Reference path '" << referencePath.name << "' contains " << referencePath.nodeIds.size() << " nodes, and " << referenceSize << " nucleotides.\n";
-  graph.findCommonNodes(minNPaths, commonNodes);
-  std::vector < int > orderedCommonNodes;
-  referencePath.orderNodes(commonNodes, orderedCommonNodes);
-  std::cerr << commonNodes.size() << " nodes are above the threshold, " << orderedCommonNodes.size() << " are in reference path.\n";
-
-  computeNPaths(graph, referencePath, orderedCommonNodes, chunkSize, chrName);
+  else {
+    Path &referencePath = graph.getPath(reference);
+    readReferencePath(graph, referencePath, chunkSize, minNPaths, bedFormat, chrName);
+  }
   return EXIT_SUCCESS;
 }
