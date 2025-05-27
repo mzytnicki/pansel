@@ -1,5 +1,5 @@
 # Install packages if not present
-packageList <- c("MASS", "ggplot2", "getopt")
+packageList <- c("fitdistrplus", "ggplot2", "getopt")
 newPackages <- packageList[! (packageList %in% installed.packages()[,"Package"])]
 if (length(newPackages)) install.packages(newPackages)
 
@@ -44,55 +44,36 @@ binSize <- as.numeric(names(sort(-table(input$size)))[1])
 input <- input[input$size >= binSize / 2, ]
 input <- input[input$size <= binSize * 2, ]
 
-# Transform to log, remove zeros (hopefully, few)
+# Remove 0s and 1s (hopefully, few)
 d <- input$index
 d <- d[d > 0]
-d <- -log(d)
-d <- d[d > 0]
+d <- d[d < 1]
 
-# Compute mode
-m <- as.numeric(names(sort(-table(round(d, 4))))[1])
-m1 <- 1.1 * m
-
-# Estimate normal with leftmost part of the distribution
-d1 <- d[d <= m1]
-d2 <- 2 * m1 - d1
-d1 <- c(d1, d2)
-f1 <- MASS::fitdistr(d1, "normal")
-threshold1 <- qnorm(opt$pvalue1, mean = f1$estimate[["mean"]], sd = f1$estimate[["sd"]])
+# Fit with beta
+f1 <- fitdistrplus::fitdist(d, "beta")
 print(f1)
-print(exp(-threshold1))
 
-# Estimate log normal with the whole distribution
-f2 <- MASS::fitdistr(d, "lognormal")
-threshold2 <- qlnorm(1 - opt$pvalue2, meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]])
-print(f2)
-print(exp(-threshold2))
-
-maxX <- threshold2 * 1.2
+threshold1 <- qbeta(1 - opt$pvalue1, shape1 = f1$estimate[["shape1"]], shape2 = f1$estimate[["shape2"]])
+threshold2 <- qbeta(opt$pvalue2,     shape1 = f1$estimate[["shape1"]], shape2 = f1$estimate[["shape2"]])
 
 # Print outliers (most conserved, least conserved) in BED format
 if (! is.null(opt$output1)) {
-  output1 <- input[input$index >= exp(-threshold1), ]
+  output1 <- input[input$index >= threshold1, ]
   write.table(output1, file = opt$output1, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
 }
 if (! is.null(opt$output2)) {
-  output2 <- input[input$index <= exp(-threshold2), ]
+  output2 <- input[input$index <= threshold2, ]
   write.table(output2, file = opt$output2, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
 }
 
 # Plot
 if (! is.null(opt$plot)) {
-  f <- function(.x, mean, sd, meanlog, sdlog) {
-    return((dnorm(.x, mean = mean, sd = sd) + dlnorm(.x, meanlog = meanlog, sdlog = sdlog)) / 2)
-  }
   p <- ggplot2::ggplot(data.frame(data = d), ggplot2::aes(data)) +
-    ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 0.0001) +
-    ggplot2::stat_function(fun = f, n = 10000, args = list(mean = f1$estimate[["mean"]], sd = f1$estimate[["sd"]], meanlog = f2$estimate[["meanlog"]], sdlog = f2$estimate[["sdlog"]]), color = "darkgreen", linetype = "dashed") +
+    ggplot2::geom_freqpoly(ggplot2::aes(y = ggplot2::after_stat(density)), binwidth = 0.001) +
+    ggplot2::stat_function(fun = dbeta, n = 1000, args = list(shape1 = f1$estimate[["shape1"]], shape2 = f1$estimate[["shape2"]]), color = "darkgreen", linetype = "dashed") +
     ggplot2::geom_vline(xintercept = threshold1, linetype = "dotted", color = "darkblue") +
     ggplot2::geom_vline(xintercept = threshold2, linetype = "dotted", color = "darkred") +
-    ggplot2::xlab("Log Jaccard index") +
-    ggplot2::xlim(0, maxX)
+    ggplot2::xlab("Jaccard index")
   ggplot2::ggsave(opt$plot, p)
 }
 
