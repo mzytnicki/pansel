@@ -33,9 +33,10 @@ Typing `make` with a fairly decent C++ compiler (compatible with C++11) should d
       -i string: file name in GFA format
       -r string: reference path name (should be in the GFA)
     Optional parameters:
-      -z int: bin size (default: 1000)
-      -n int: min # paths
-      -b string: use BED format, and print the parameter as reference name
+      -z int:    bin size (default: 1000)
+      -n int:    min # paths
+      -b:        use BED (shorter) format
+      -c string: reference name (if the graph contains 1 chromosome)
     Other:
       -h: print this help and exit
       -v: print version number to stderr
@@ -43,16 +44,25 @@ Typing `make` with a fairly decent C++ compiler (compatible with C++11) should d
 
 ### Parameters
 
- - The GFA file should not be rGFA, and contain segments (`S`) and full length paths (`P`) or walks (`W`).
-     Other lines are unused.
-     This GFA should only store one chromosome.
- - The reference path name should be the name of a `P` line or a `W` line in the GFA file.
  - The bin size is the distance between two anchor nodes that will be considered.
  - The `-n` parameter is a threshold, that help selecting highly conserved nodes.
      The nodes that are traversed by at least *n* different paths are selected this way.
      If this parameter is not provided, it will be computed by the programme.
      Briefly, it counts the number of times each node is traversed, and takes the mode of the distribution (with *n* > 3).
 
+
+### Input GFA file format
+
+The GFA format is not standardized yet.
+PanSel needs minimal information in order to deduce chromosomes from paths.
+
+ - The GFA file should not be rGFA, and contain segments (`S`) and full length paths (`P`) or walks (`W`).
+     Other lines are unused.
+ - This GFA can only store one or several chromosomes.
+ - The reference path name should be the second field of a `P` line (`PathName`) or a `W` line (`SampleId`) in the GFA file.
+ - If the GFA file contains one chromosome, you can provide the name of this chromosome (to appear in the output file) using parameter `-c`.
+ - If the GFA file contains several chromosomes, only `W` lines are supported, and the name of the chromosome should be the fourth field (`SeqId`).
+ - The reference should not be split into several contigs.
 
 ### Output files
 
@@ -81,6 +91,11 @@ Notes:
  - An anchor node may cover the whole bin.
      In this case, the number of different paths is 1, and the left-most anchor node is equal to the right-most anchor node.
 
+#### BED output
+
+The alternative is a [BED format](https://en.wikipedia.org/wiki/BED_(file_format)), where the Jaccard index is provided as the fifth field (`score`).
+
+
 #### Standard error
 
 This file contains different statistics on the GFA file, as well as the reference path.
@@ -90,7 +105,7 @@ This file contains different statistics on the GFA file, as well as the referenc
 You can use `pansel` on a small sample, provided by the [BubbleGun](https://github.com/fawaz-dabbaghieh/bubble_gun) package:
 
     wget -c https://zenodo.org/record/7937947/files/ecoli50.gfa.zst
-    ./pansel -i <( zstd -d -c ecoli50.gfa.zst ) -r GCF_019614135.1#1#NZ_CP080645.1 > ecoli.out 2> ecoli.log
+    ./pansel -i <( zstd -d -c ecoli50.gfa.zst ) -r GCF_019614135.1#1#NZ_CP080645.1 -b > ecoli.bed 2> ecoli.log
 
 ## Example of real use
 
@@ -98,7 +113,7 @@ This will detail an example of a real use of `pansel`.
 
 ### Step 1
 
-Dowload the HPRC data (1 file per chromosome, restrict to autosomes), and tranform from VG to GFA format using `vg view`:
+Download the HPRC data (1 file per chromosome, restrict to autosomes), and tranform from VG to GFA format using `vg view`:
 
     for i in `seq 1 22`
     do
@@ -113,19 +128,10 @@ Dowload the HPRC data (1 file per chromosome, restrict to autosomes), and tranfo
 
     for i in `seq 1 22`
     do
-      /usr/bin/time ./pansel -i <( zcat chr${i}.gfa.gz ) -r GRCh38.0.chr${i} -n 91 > chr${i}.tsv 2> chr${i}.log
-    done
+      /usr/bin/time ./pansel -i <( zcat chr${i}.gfa.gz ) -r GRCh38.0.chr${i} -c chr${i} -n 91 -b
+    done > chrall.bed 2> chrall.log
 
 ### Step 3
-
-Merge output files, and produce a BED file:
-
-    for i in `seq 1 22`
-    do
-      sed "s/^/chr${i}\t/g" chr${i}.tsv
-    done | awk '{print $1 "\t" ($3-1) "\t" $4 "\tbin_" NR "\t" $5 "\t+"}' > chrall.bed
-
-### Step 4
 
 Fit distributions to the number of paths, and get the 5% threshold for the most conserved, and the most divergent regions (the R script file is included in the repository):
 
