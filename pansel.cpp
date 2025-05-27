@@ -544,7 +544,7 @@ void printUsage () {
        "  -z int:    bin size (default: 1000)\n"
        "  -n int:    min # paths\n"
        "  -b:        use BED (shorter) format\n"
-       "  -c string: reference name (if the graph contains 1 chromosome)\n"
+       "  -c string: reference name (if the graph contains 1 chromosome, defaut: ref path name)\n"
        "Other:\n"
        "  -h: print this help and exit\n"
        "  -v: print version number to stderr");
@@ -592,6 +592,9 @@ void parseParameters (int argc, char const **argv, std::string &pangenomeFileNam
     std::cerr << "Error!\nInput path reference name is missing.\nExiting.\n";
     printUsage();
     exit(EXIT_FAILURE);
+  }
+  if (chrName.empty()) {
+    chrName = reference;
   }
 }
 
