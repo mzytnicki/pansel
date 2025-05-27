@@ -85,12 +85,14 @@ struct SubPath {
 
 // A Path contains:
 //  - a name
+//  - a (possibly empty) hapid
 //  - a (possibly empty) seqid
 //  - a start position (w.r.t. the genome sequence)
 //  - a list of indices of Node
 //  - a dictionary that gives the position of a Node in the previous list, given its id
 struct Path {
   std::string name;
+  std::string hapId;
   std::string seqId;
   unsigned long start;
   std::vector < int > nodeIds;
@@ -98,7 +100,7 @@ struct Path {
 
   Path (std::string &n): name(n), start(0) {}
 
-  Path (std::string &n, std::string &i, unsigned long s): name(n), seqId(i), start(s) {}
+  Path (std::string &n, std::string &h, std::string &i, unsigned long s): name(n), hapId(h), seqId(i), start(s) {}
 
   std::size_t size () const {
     return nodeIds.size();
@@ -156,12 +158,14 @@ struct Path {
 //  - a hash of node name to id of the previous list
 //  - a list of Path
 //  - the number of path that traverse each node
+//  - the set of "common" nodes
 struct Graph {
   std::vector < Node > nodes;
   std::vector < std::string > nodeNames;
   std::unordered_map < std::string, int > nodeIds;
   std::vector < Path > paths;
   std::vector < int > nPaths;
+  std::vector < int > commonNodes;
 
   Path &getPath (std::string &pathName) {
     for (Path &path: paths) {
@@ -181,6 +185,16 @@ struct Graph {
     }
     std::cerr << "Error!  Cannot find path with name '" << pathName << ":" << seqId << "'.\nExiting.\n";
     exit(EXIT_FAILURE);
+  }
+
+  Path &getOrCreatePath (std::string &pathName, std::string &hapId, std::string &seqId, unsigned long start) {
+    for (Path &path: paths) {
+      if ((path.name == pathName) && (path.hapId == hapId) && (path.seqId == seqId)) {
+        return path;
+      }
+    }
+    paths.emplace_back(pathName, hapId, seqId, start);
+    return paths.back();
   }
 
   // Copy all the seq ids for the path name
@@ -222,11 +236,12 @@ struct Graph {
   }
 
   // Compute, for each node, the number of paths it belongs to.
-  // Return the most frequent nodes (above the given threshold)
-  void findCommonNodes (int &minNPaths, std::vector < int > &selectedNodes) {
+  // Store into "commonNodes" the most frequent nodes (above the given threshold)
+  void findCommonNodes (int &minNPaths) {
     nPaths.resize(nodes.size());
     for (Path &path: paths) {
-      // In case of cycle, a path may visit the same node several times
+      // In case of cycle, a path may visit the same node several times.
+      // This will count nodes at most once per path.
       for (const auto &p: path.hashNodes) {
         ++nPaths[p.first];
       }
@@ -250,13 +265,13 @@ struct Graph {
         ++nNodes;
       }
     }
-    selectedNodes.clear();
-    selectedNodes.reserve(nNodes);
+    commonNodes.reserve(nNodes);
     for (std::size_t i = 0; i < nPaths.size(); ++i) {
       if (nPaths[i] >= minNPaths) {
-        selectedNodes.push_back(i);
+        commonNodes.push_back(i);
       }
     }
+    commonNodes.shrink_to_fit();
   }
 
   double getJaccard (SubPath &sub1, SubPath &sub2) {
@@ -367,10 +382,6 @@ struct Parser {
         int nodeId = graph.nodeIds[nodeName];
         graph.paths.back().addNode(nodeId);
       }
-      for (Path &path: graph.paths) {
-        path.nodeIds.shrink_to_fit();
-      }
-      graph.paths.shrink_to_fit();
     }
   }
 
@@ -380,29 +391,26 @@ struct Parser {
     graph.nodeNames.shrink_to_fit();
     std::istringstream formattedLine(line);
     char tag;
-    int hapIndex;
     unsigned long start, end;
-    std::string pathName, mergedPath, seqId;
+    std::string pathName, hapIndex, seqId, mergedPath;
     formattedLine >> tag >> pathName >> hapIndex >> seqId >> start >> end >> mergedPath;
-    graph.paths.emplace_back(pathName, seqId, start);
-    std::string nodeName;
+    // If the same walk (name, hapId, seqId) is seen several times, just append the paths.
+    // This is a bug if the reference path is split.
+    // Otherwise, there should be minimal impact.
+    Path &path = graph.getOrCreatePath(pathName, hapIndex, seqId, start);
     // Do not insert strand
     unsigned int stringStart = 1;
     for (unsigned int stringEnd = 1; stringEnd < mergedPath.size(); ++stringEnd) {
       if ((mergedPath[stringEnd] == '>') || (mergedPath[stringEnd] == '<')) {
         // Do not insert strand
         int nodeId = graph.nodeIds[mergedPath.substr(stringStart, stringEnd - stringStart)];
-        graph.paths.back().addNode(nodeId);
+        path.addNode(nodeId);
         stringStart = stringEnd + 1;
       }
     }
     // Insert last node
     int nodeId = graph.nodeIds[mergedPath.substr(stringStart)];
-    graph.paths.back().addNode(nodeId);
-    for (Path &path: graph.paths) {
-      path.nodeIds.shrink_to_fit();
-    }
-    graph.paths.shrink_to_fit();
+    path.addNode(nodeId);
   }
 
   void parseFile () {
@@ -419,6 +427,10 @@ struct Parser {
           parseWalk(line);
         }
       }
+    }
+    graph.paths.shrink_to_fit();
+    for (Path &path: graph.paths) {
+      path.nodeIds.shrink_to_fit();
     }
     std::cerr << "Read file with " << graph.nodes.size() << " segments and " << graph.paths.size() << " paths.\n";
   }
@@ -480,7 +492,7 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
           // The current node covers the whole chunk: stats are straightforward
           if ((currentNode.startsBefore(currentChunk)) && (currentNode.endsAfter(currentChunk))) {
             if (bedFormat) {
-              std::cout << chrName << "\t" << currentChunk.start << "\t" << currentChunk.end << "\tregion_" << graph.nPaths[currentNode.id] << "\t1\t+\n";
+              std::cout << chrName << "\t" << currentChunk.start << "\t" << currentChunk.end << "\tregion_" << currentNode.id << "\t1\t+\n";
             }
             else {
               std::cout << currentChunk.id << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t0\t1\t" << graph.nPaths[currentNode.id] << "\t" << currentChunk.start << "\t" << currentChunk.end << "\t";
@@ -506,8 +518,7 @@ void computeNPaths (Graph &graph, Path &referencePath, std::vector < int > &orde
 }
 
 void readReferencePath (Graph &graph, Path &referencePath, int chunkSize, int minNPaths, bool bedFormat, std::string &chrName) {
-  std::vector < int > commonNodes;
-  long        referenceSize  = 0;
+  long referenceSize  = 0;
   for (int nodeId: referencePath.nodeIds) {
     referenceSize += graph.nodes[nodeId].size;
   }
@@ -516,10 +527,9 @@ void readReferencePath (Graph &graph, Path &referencePath, int chunkSize, int mi
     std::cerr << ':' << referencePath.seqId;
   }
   std::cerr << "' contains " << referencePath.nodeIds.size() << " nodes, and " << referenceSize << " nucleotides.\n";
-  graph.findCommonNodes(minNPaths, commonNodes);
   std::vector < int > orderedCommonNodes;
-  referencePath.orderNodes(commonNodes, orderedCommonNodes);
-  std::cerr << commonNodes.size() << " nodes are above the threshold, " << orderedCommonNodes.size() << " are in reference path.\n";
+  referencePath.orderNodes(graph.commonNodes, orderedCommonNodes);
+  std::cerr << graph.commonNodes.size() << " nodes are above the threshold, " << orderedCommonNodes.size() << " are in reference path.\n";
 
   computeNPaths(graph, referencePath, orderedCommonNodes, chunkSize, bedFormat, chrName);
 }
@@ -596,6 +606,7 @@ int main (int argc, const char* argv[]) {
   Graph       graph;
   Parser      parser(pangenomeFileName, graph);
   parser.parseFile();
+  graph.findCommonNodes(minNPaths);
   if (chrName.empty()) {
     std::vector < std::string > seqIds;
     graph.getSeqIds(reference, seqIds);
